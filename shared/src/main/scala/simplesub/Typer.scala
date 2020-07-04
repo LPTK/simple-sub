@@ -178,9 +178,9 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
   
   def freshenAbove(lim: Int, ty: SimpleType)(implicit lvl: Int): SimpleType = {
     val freshened = MutMap.empty[TypeVariable, TypeVariable]
-    def freshen(ty: SimpleType): SimpleType = ty match {
+    def freshen(ty: SimpleType): SimpleType = if (ty.level <= lim) ty else ty match {
       case tv: TypeVariable =>
-        if (tv.level > lim) freshened.get(tv) match {
+        freshened.get(tv) match {
           case Some(tv) => tv
           case None =>
             val v = freshVar
@@ -193,7 +193,7 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
             v.lowerBounds = tv.lowerBounds.reverse.map(freshen).reverse
             v.upperBounds = tv.upperBounds.reverse.map(freshen).reverse
             v
-        } else tv
+        }
       case FunctionType(l, r) => FunctionType(freshen(l), freshen(r))
       case RecordType(fs) => RecordType(fs.map(ft => ft._1 -> freshen(ft._2)))
       case PrimType(_) => ty
