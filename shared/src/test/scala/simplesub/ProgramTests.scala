@@ -102,4 +102,64 @@ class ProgramTests extends FunSuite {
     )
   }
   
+  test("blah") {
+    doTest("""
+      // 
+      // From a comment on the blog post:
+      // 
+      let rec r = fun a -> r
+      let join = fun a -> fun b -> if true then a else b
+      let s = join r r
+      // 
+      // Inspired by [Pottier 98, chap 13.4]
+      // 
+      let rec f = fun x -> fun y -> add (f x.tail y) (f x y)
+      let rec f = fun x -> fun y -> add (f x.tail y) (f y x)
+      let rec f = fun x -> fun y -> add (f x.tail y) (f x y.tail)
+      let rec f = fun x -> fun y -> add (f x.tail y.tail) (f x.tail y.tail)
+      let rec f = fun x -> fun y -> add (f x.tail x.tail) (f y.tail y.tail)
+      let rec f = fun x -> fun y -> add (f x.tail x) (f y.tail y)
+      let rec f = fun x -> fun y -> add (f x.tail y) (f y.tail x)
+      // 
+      let f = fun x -> fun y -> if true then { l = x; r = y } else { l = y; r = x } // 2-crown
+      // 
+      // Inspired by [Pottier 98, chap 13.5]
+      // 
+      let rec f = fun x -> fun y -> if true then x else { t = f x.t y.t }
+    """)(
+      "(⊤ -> 'a) as 'a",
+      "'a -> 'a -> 'a",
+      "⊤ -> (⊤ -> 'a) as 'a ∨ (⊤ -> 'b) as 'b", // could simplify more
+      
+      "{tail: 'a} as 'a -> ⊤ -> int",
+      "{tail: 'a} as 'a -> {tail: 'b} as 'b -> int",
+      "{tail: 'a} as 'a -> {tail: 'b} as 'b -> int",
+      "{tail: 'a} as 'a -> {tail: 'b} as 'b -> int",
+      "{tail: 'b ∧ 'a} as 'b as 'a -> {tail: 'c ∧ 'd} as 'd as 'c -> int", // could simplify more (double rec type)
+      // ^ MLsub says:
+      //    let rec f = fun x -> fun y -> (f x.tail x) + (f y.tail y)
+      //    val f : ({tail : (rec b = {tail : b})} -> ({tail : {tail : (rec a = {tail : a})}} -> int))
+      "({tail: 'a} ∧ {tail: 'a}) as 'a -> {tail: ('b ∧ {tail: 'c}) as 'c} as 'b -> int", // could simplify more (the {tail: 'a} ∧ {tail: 'a})
+      // ^ MLsub says:
+      //    let rec f = fun x -> fun y -> (f x.tail x.tail) + (f y.tail y.tail)
+      //    val f : ({tail : {tail : (rec b = {tail : b})}} -> ({tail : {tail : (rec a = {tail : a})}} -> int))
+      "({tail: 'a} ∧ {tail: 'a}) as 'a -> {tail: ('b ∧ {tail: 'c}) as 'c} as 'b -> int",
+      
+      "'a -> 'a -> {l: 'a, r: 'a}",
+      
+      "('b ∧ {t: 'a}) as 'a -> {t: 'c} as 'c -> ('b ∨ {t: 'd}) as 'd",
+      // ^ MLsub says:
+      //    let rec f = fun x -> fun y -> if true then x else { t = f x.t y.t }
+      //    val f : (({t : (rec d = ({t : d} & a))} & a) -> ({t : (rec c = {t : c})} -> ({t : (rec b = ({t : b} | a))} | a)))
+      // ^ Pottier says a simplified version would essentially be, once translated to MLsub types:
+      //    {t: 'a} as 'a -> 'a -> {t: 'd} as 'd
+      // but even he does not infer that.
+      // Notice the loss of connection between the first parameetr and the result, in his proposed type,
+      // which he says is not necessary as it is actually implied.
+      // He argues that if 'a <: F 'a and F 'b <: 'b then 'a <: 'b, for a type operator F,
+      // which does indeed seem true (even in MLsub),
+      // though leveraging such facts for simplification would require much more advanced reasoning.
+    )
+  }
+  
 }
