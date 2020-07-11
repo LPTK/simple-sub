@@ -21,7 +21,7 @@ object Helpers {
       case Inter(l, r) => parensIf(l.showAsMLsubIn(ctx, 25) + " & " + r.showAsMLsubIn(ctx, 25), outerPrec > 25)
     }
     
-    def mkCtx(addTicks: Boolean) = {
+    def mkCtx(addTicks: Boolean): Map[TypeVar, String] = {
       val vars = ty.typeVarsList.distinct
       vars.zipWithIndex.map {
         case (tv, idx) =>

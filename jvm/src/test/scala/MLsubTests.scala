@@ -10,7 +10,7 @@ import Helpers._
 
 // This program enumerates well-scoped terms
 // and compares the results of Simple-sub and MLsub type inference on them, making sure that they agree.
-object MLsubTests extends scala.App {
+object MLsubTests extends scala.App {{
   
   val seed = 42
   val rand = new Random(seed)
@@ -142,11 +142,11 @@ object MLsubTests extends scala.App {
   println(s"  (error: not <:)         — $notSub")
   println(s"  (error: not :>)         — $notSup")
   
-}
+}}
 
 class MLsub {
   
-  val mlsub = os.proc("mlsub/main.native").spawn()
+  private val mlsub = os.proc("mlsub/main.native").spawn()
   
   // Start MLsub with the definition of the `succ` combinator:
   assert(query("let succ = fun x -> x + 1") === "val succ : (int -> int)")
