@@ -1,7 +1,11 @@
 # Simple Algebraic Subtyping
 
-This repository shows the implementation of **simple-sub**,
+This repository shows the implementation of **Simple-sub**,
 an alternative algorithm to MLsub for algebraic subtyping.
+
+An online demo is available here: https://lptk.github.io/simple-sub/
+
+The corresponding ICFP Pearl paper preprint can be downloaded here: https://infoscience.epfl.ch/record/278576
 
 
 ## Running the tests
