@@ -39,17 +39,43 @@ object Main {
             s" at line $line:<BLOCKQUOTE>$lineStr</BLOCKQUOTE>"
         case Success(p, index) =>
           // println(s"Parsed: $p")
-          val typer = new simplesub.Typer(dbg = false) with simplesub.TypeSimplifier
-          val tys = typer.inferTypesJS(p)
+          object Typer extends simplesub.Typer(dbg = false) with simplesub.TypeSimplifier {
+            import simplesub._
+            // Saldy, the original `inferTypes` version does not seem to work in JavaScript, as it raises a
+            //    "RangeError: Maximum call stack size exceeded"
+            // So we have to go with this uglier one:
+            def inferTypesJS(
+              pgrm: Pgrm,
+              ctx: Ctx = builtins,
+              stopAtFirstError: Boolean = true,
+            ): List[Either[TypeError, PolymorphicType]] = {
+              var defs = pgrm.defs
+              var curCtx = ctx
+              var res = collection.mutable.ListBuffer.empty[Either[TypeError, PolymorphicType]]
+              while (defs.nonEmpty) {
+                val (isrec, nme, rhs) = defs.head
+                defs = defs.tail
+                val ty_sch = try Right(typeLetRhs(isrec, nme, rhs)(curCtx, 0)) catch {
+                  case err: TypeError =>
+                    if (stopAtFirstError) defs = Nil
+                    Left(err)
+                }
+                res += ty_sch
+                curCtx += (nme -> ty_sch.getOrElse(freshVar(0)))
+              }
+              res.toList
+            }
+          }
+          val tys = Typer.inferTypesJS(p)
           (p.defs.zipWithIndex lazyZip tys).map {
             case ((d, i), Right(ty)) =>
               println(s"Typed `${d._2}` as: $ty")
               println(s" where: ${ty.instantiate(0).showBounds}")
-              val com = typer.compactType(ty.instantiate(0))
+              val com = Typer.compactType(ty.instantiate(0))
               println(s"Compact type before simplification: ${com}")
-              val sim = typer.simplifyType(com)
+              val sim = Typer.simplifyType(com)
               println(s"Compact type after simplification: ${sim}")
-              val exp = typer.expandCompactType(sim)
+              val exp = Typer.expandCompactType(sim)
               s"""<b>
                   <font color="#93a1a1">val </font>
                   <font color="LightGreen">${d._2}</font>: 

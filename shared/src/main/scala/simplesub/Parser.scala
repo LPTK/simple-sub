@@ -6,7 +6,7 @@ import fastparse._, fastparse.ScalaWhitespace._
 @SuppressWarnings(Array("org.wartremover.warts.All"))
 object Parser {
   
-  val keywords = Set("let", "rec", "in", "fun", "if", "then", "else")
+  val keywords = Set("let", "rec", "in", "fun", "if", "then", "else", "true", "false")
   def kw[_: P](s: String) = s ~~ !(letter | digit | "_" | "'")
   
   def letter[_: P]     = P( lowercase | uppercase )
@@ -19,13 +19,13 @@ object Parser {
   
   def term[_: P]: P[Term] = P( let | fun | ite | apps )
   def const[_: P]: P[Term] = number.map(Lit)
-  def variable[_: P]: P[Term] = ident.map(Var)
+  def variable[_: P]: P[Term] = (ident | "true".! | "false".!).map(Var)
   def parens[_: P]: P[Term] = P( "(" ~/ term ~ ")" )
   def subtermNoSel[_: P]: P[Term] = P( parens | record | const | variable )
   def subterm[_: P]: P[Term] = P( subtermNoSel ~ ("." ~/ ident).rep ).map {
     case (st, sels) => sels.foldLeft(st)(Sel) }
-  def record[_: P]: P[Term] =
-    P( "{" ~/ (ident ~ "=" ~ term).rep(sep = ";") ~ "}" ).map(_.toList pipe Rcd)
+  def record[_: P]: P[Term] = P( "{" ~/ (ident ~ "=" ~ term).rep(sep = ";") ~ "}" )
+    .filter(xs => xs.map(_._1).toSet.size === xs.size).map(_.toList pipe Rcd)
   def fun[_: P]: P[Term] = P( kw("fun") ~/ ident ~ "->" ~ term ).map(Lam.tupled)
   def let[_: P]: P[Term] =
     P( kw("let") ~/ kw("rec").!.?.map(_.isDefined) ~ ident ~ "=" ~ term ~ kw("in") ~ term )

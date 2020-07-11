@@ -25,12 +25,19 @@ class ParserTests extends FunSuite {
     doTest("a")
     doTest("1 2 3")
     doTest("a b c")
+    doTest("true")
   }
   
   test("let") {
     doTest("let a = b in c")
     doTest("let a = 1 in 1")
     doTest("let a = (1) in 1")
+    assert(!parse("let true = 0 in true", expr(_)).isSuccess)
+  }
+  
+  test("records") {
+    doTest("{ a = 1; b = 2 }")
+    assert(!parse("{ a = 1; b = 2; a = 3 }", expr(_)).isSuccess)
   }
   
 }

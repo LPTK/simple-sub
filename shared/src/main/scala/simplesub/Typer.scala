@@ -42,31 +42,6 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
       case Nil => Nil
     }
   
-  // Saldy, the version above does not work in JavaScript as it raises a
-  //    "RangeError: Maximum call stack size exceeded"
-  // So we have to go with this uglier one:
-  def inferTypesJS(
-    pgrm: Pgrm,
-    ctx: Ctx = builtins,
-    stopAtFirstError: Boolean = true,
-  ): List[Either[TypeError, PolymorphicType]] = {
-    var defs = pgrm.defs
-    var curCtx = ctx
-    var res = collection.mutable.ListBuffer.empty[Either[TypeError, PolymorphicType]]
-    while (defs.nonEmpty) {
-      val (isrec, nme, rhs) = defs.head
-      defs = defs.tail
-      val ty_sch = try Right(typeLetRhs(isrec, nme, rhs)(curCtx, 0)) catch {
-        case err: TypeError =>
-          if (stopAtFirstError) defs = Nil
-          Left(err)
-      }
-      res += ty_sch
-      curCtx += (nme -> ty_sch.getOrElse(freshVar(0)))
-    }
-    res.toList
-  }
-  
   def inferType(term: Term, ctx: Ctx = builtins, lvl: Int = 0): SimpleType = typeTerm(term)(ctx, lvl)
   
   /** Infer the type of a let binding right-hand side. */
@@ -144,29 +119,29 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
         rhs.lowerBounds ::= lhs
         rhs.upperBounds.foreach(constrain(lhs, _))
       case (_: TypeVariable, rhs0) =>
-        val rhs = extrude(rhs0, lhs.level, false)
+        val rhs = extrude(rhs0, false)(lhs.level, MutMap.empty)
         constrain(lhs, rhs)
       case (lhs0, _: TypeVariable) =>
-        val lhs = extrude(lhs0, rhs.level, true)
+        val lhs = extrude(lhs0, true)(rhs.level, MutMap.empty)
         constrain(lhs, rhs)
       case _ => err(s"cannot constrain ${lhs.show} <: ${rhs.show}")
     }
   }
   
   /** Copies a type up to its type variables of wrong level (and their extruded bounds). */
-  def extrude(ty: SimpleType, lvl: Int, pol: Boolean)
-      (implicit cache: MutMap[TypeVariable, TypeVariable] = MutMap.empty): SimpleType =
+  def extrude(ty: SimpleType, pol: Boolean)
+      (implicit lvl: Int, cache: MutMap[TypeVariable, TypeVariable]): SimpleType =
     if (ty.level <= lvl) ty else ty match {
-      case FunctionType(l, r) => FunctionType(extrude(l, lvl, !pol), extrude(r, lvl, pol))
-      case RecordType(fs) => RecordType(fs.map(nt => nt._1 -> extrude(nt._2, lvl, pol)))
+      case FunctionType(l, r) => FunctionType(extrude(l, !pol), extrude(r, pol))
+      case RecordType(fs) => RecordType(fs.map(nt => nt._1 -> extrude(nt._2, pol)))
       case tv: TypeVariable => cache.getOrElse(tv, {
-        val nv = freshVar(lvl)
-        cache += (tv -> nv)
-        if (pol) { tv.upperBounds ::= nv
-          nv.lowerBounds = tv.lowerBounds.map(extrude(_, lvl, pol)) }
-        else { tv.lowerBounds ::= nv
-          nv.upperBounds = tv.upperBounds.map(extrude(_, lvl, pol)) }
-        nv
+        val nvs = freshVar
+        cache += tv -> nvs
+        if (pol) { tv.upperBounds ::= nvs
+          nvs.lowerBounds = tv.lowerBounds.map(extrude(_, pol)) }
+        else { tv.lowerBounds ::= nvs
+          nvs.upperBounds = tv.upperBounds.map(extrude(_, pol)) }
+        nvs
       })
       case PrimType(_) => ty
     }
@@ -178,9 +153,9 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
   
   def freshenAbove(lim: Int, ty: SimpleType)(implicit lvl: Int): SimpleType = {
     val freshened = MutMap.empty[TypeVariable, TypeVariable]
-    def freshen(ty: SimpleType): SimpleType = ty match {
+    def freshen(ty: SimpleType): SimpleType = if (ty.level <= lim) ty else ty match {
       case tv: TypeVariable =>
-        if (tv.level > lim) freshened.get(tv) match {
+        freshened.get(tv) match {
           case Some(tv) => tv
           case None =>
             val v = freshVar
@@ -193,7 +168,7 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
             v.lowerBounds = tv.lowerBounds.reverse.map(freshen).reverse
             v.upperBounds = tv.upperBounds.reverse.map(freshen).reverse
             v
-        } else tv
+        }
       case FunctionType(l, r) => FunctionType(freshen(l), freshen(r))
       case RecordType(fs) => RecordType(fs.map(ft => ft._1 -> freshen(ft._2)))
       case PrimType(_) => ty
