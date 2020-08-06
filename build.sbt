@@ -39,7 +39,7 @@ lazy val simplesub = crossProject(JSPlatform, JVMPlatform).in(file("."))
   .jsSettings(
     scalaJSUseMainModuleInitializer := true,
     libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "0.9.8",
-    libraryDependencies += "be.doeraene" %%% "scalajs-jquery" % "0.9.6",
+    libraryDependencies += "be.doeraene" %%% "scalajs-jquery" % "1.0.0",
   )
 
 lazy val simplesubJVM = simplesub.jvm
