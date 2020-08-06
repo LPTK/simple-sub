@@ -27,10 +27,10 @@ class TypingTestHelpers extends FunSuite {
     if (dbg) println("compacted: " + cty)
     val sty = typer.simplifyType(cty)
     if (dbg) println("simplified: " + sty)
-    val ety = typer.expandCompactType(sty)
+    val ety = typer.coalesceCompactType(sty)
     if (dbg) {
-      println("expanded raw: " + ety)
-      println("expanded: " + ety.show)
+      println("coalesced raw: " + ety)
+      println("coalesced: " + ety.show)
     }
     
     val res = ety.show

@@ -18,20 +18,15 @@ final case class Let(isRec: Boolean, name: String, rhs: Term, body: Term) extend
 // Types
 
 sealed abstract class Type extends TypeImpl
-
-final case class Union(lhs: Type, rhs: Type)             extends Type
-final case class Inter(lhs: Type, rhs: Type)             extends Type
-final case class Function(lhs: Type, rhs: Type)          extends Type
-final case class Record(fields: List[(String, Type)])    extends Type
-final case class Recursive(uv: TypeVar, body: Type)      extends Type
-
-sealed abstract class NullaryType                        extends Type
-
-case object Top                                          extends NullaryType
-case object Bot                                          extends NullaryType
-
-final case class Primitive(name: String)                 extends NullaryType
-final class TypeVar(val nameHint: String, val hash: Int) extends NullaryType {
+case object Top                                               extends Type
+case object Bot                                               extends Type
+final case class Union(lhs: Type, rhs: Type)                  extends Type
+final case class Inter(lhs: Type, rhs: Type)                  extends Type
+final case class FunctionType(lhs: Type, rhs: Type)           extends Type
+final case class RecordType(fields: List[(String, Type)])     extends Type
+final case class RecursiveType(uv: TypeVariable, body: Type)  extends Type
+final case class PrimitiveType(name: String)                  extends Type
+final class TypeVariable(val nameHint: String, val hash: Int) extends Type {
   override def toString: String = s"$nameHint:$hash"
 }
 
