@@ -6,9 +6,10 @@ import Parser.expr
 import fastparse.Parsed.Failure
 import fastparse.Parsed.Success
 import sourcecode.Line
+import org.scalatest.funsuite.AnyFunSuite
 
 @SuppressWarnings(Array("org.wartremover.warts.Equals"))
-class TypingTestHelpers extends FunSuite {
+class TypingTestHelpers extends AnyFunSuite {
   
   def doTest(str: String, expected: String = "")(implicit line: Line): Unit = {
     val dbg = expected.isEmpty
