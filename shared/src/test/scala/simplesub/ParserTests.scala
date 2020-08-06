@@ -5,8 +5,9 @@ import fastparse._
 import Parser.expr
 import fastparse.Parsed.Failure
 import fastparse.Parsed.Success
+import org.scalatest.funsuite.AnyFunSuite
 
-class ParserTests extends FunSuite {
+class ParserTests extends AnyFunSuite {
   
   def doTest(str: String): Unit = {
     parse(str, expr(_), verboseFailures = true) match {

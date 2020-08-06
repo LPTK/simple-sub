@@ -6,9 +6,10 @@ import Parser.pgrm
 import fastparse.Parsed.Failure
 import fastparse.Parsed.Success
 import sourcecode.Line
+import org.scalatest.funsuite.AnyFunSuite
 
 @SuppressWarnings(Array("org.wartremover.warts.Equals"))
-class ProgramTests extends FunSuite {
+class ProgramTests extends AnyFunSuite {
   
   implicit class ExpectedStr(val str: String)(implicit val line: Line)
   
