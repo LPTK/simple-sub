@@ -103,7 +103,7 @@ class ProgramTests extends AnyFunSuite {
     )
   }
   
-  test("blah") {
+  test("misc") {
     doTest("""
       // 
       // From a comment on the blog post:

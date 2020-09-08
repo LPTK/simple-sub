@@ -55,7 +55,7 @@ trait TypeSimplifier { self: Typer =>
     //    so as to remove spurious cycles such as ?a <: ?b and ?b <: ?a,
     //    which do not correspond to actual recursive types.
     def go(ty: SimpleType, pol: Boolean, parents: Set[Variable])
-          (implicit inProcess: Set[(Variable, Boolean)]): CompactType = ty match {
+          (implicit inProcess: Set[PolarVariable]): CompactType = ty match {
       case p: Primitive => ct(prims = Set(p))
       case Function(l, r) =>
         ct(fun = Some(go(l, !pol, Set.empty) -> go(r, pol, Set.empty)))
@@ -67,7 +67,7 @@ trait TypeSimplifier { self: Typer =>
         if (inProcess.contains(tv_pol))
           if (parents(tv)) ct() // we have a spurious cycle: ignore the bound
           else ct(vars = Set(recursive.getOrElseUpdate(tv_pol, freshVar(0))))
-        else (inProcess + (tv -> pol)) pipe { implicit inProcess =>
+        else (inProcess + (tv_pol)) pipe { implicit inProcess =>
           val bound = bounds.map(b => go(b, pol, parents + tv))
             .foldLeft[CompactType](ct(vars = Set(tv)))(merge(pol))
           recursive.get(tv_pol) match {
@@ -77,7 +77,7 @@ trait TypeSimplifier { self: Typer =>
             case None => bound
           }
         }
-      }
+    }
     
     CompactTypeScheme(go(ty, true, Set.empty)(Set.empty), recVars)
   }
