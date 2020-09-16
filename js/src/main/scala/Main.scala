@@ -71,7 +71,7 @@ object Main {
             case ((d, i), Right(ty)) =>
               println(s"Typed `${d._2}` as: $ty")
               println(s" where: ${ty.instantiate(0).showBounds}")
-              val com = Typer.compactType(ty.instantiate(0))
+              val com = Typer.canonicalizeType(ty.instantiate(0))
               println(s"Compact type before simplification: ${com}")
               val sim = Typer.simplifyType(com)
               println(s"Compact type after simplification: ${sim}")
