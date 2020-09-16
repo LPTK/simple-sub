@@ -1,11 +1,33 @@
-# Simple Algebraic Subtyping
+# Simple-sub Algorithm for Algebraic Subtyping
 
 This repository shows the implementation of **Simple-sub**,
-an alternative algorithm to MLsub for algebraic subtyping.
+an alternative algorithm to MLsub for type inference based on algebraic subtyping.
 
 An online demo is available here: https://lptk.github.io/simple-sub/
 
 The corresponding ICFP Pearl paper preprint can be downloaded here: https://lptk.github.io/simple-sub-paper
+
+
+## Branches
+
+
+### ICFP branch (for posterity)
+
+The code which corresponds precisely to the ICFP paper mentioned above
+can be found in the branch `mlsub-compare`,
+which also contains instructions for compiling MLsub
+and for systematically testing Simple-sub against it (on randomly-generated expressions).
+
+
+### Master branch (current development)
+
+The current `master` branch contains newer changes, including:
+ 
+ * A type canonicalization algorithm to merge recursive types,
+    so that for instance the type inferred for `let rec r = fun a -> r in if true then r else r`
+    is just `(⊤ -> 'a) as 'a` instead of `⊤ -> (⊤ -> 'a) as 'a ∨ (⊤ -> 'b) as 'b`
+    (see `[test:T2]` in the code).
+
 
 
 ## Running the tests

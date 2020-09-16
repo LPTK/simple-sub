@@ -103,6 +103,9 @@ class TypingTests extends TypingTestHelpers {
   test("recursion") {
     doTest("let rec f = fun x -> f x.u in f",
       "{u: 'a} as 'a -> ⊥")
+    doTest("let rec r = fun a -> r in if true then r else r",
+      "(⊤ -> 'a) as 'a")
+    // ^ [test:T2] without canonicalization, we get the type: ⊤ -> (⊤ -> 'a) as 'a ∨ (⊤ -> 'b) as 'b
     
     // from https://www.cl.cam.ac.uk/~sd601/mlsub/
     doTest("let rec recursive_monster = fun x -> { thing = x; self = recursive_monster x } in recursive_monster",
@@ -114,7 +117,8 @@ class TypingTests extends TypingTestHelpers {
     doTest("(let rec x = fun v -> {a = x v; b = x v} in x)",              "⊤ -> {a: 'a, b: 'a} as 'a")
     error("let rec x = (let rec y = {u = y; v = (x y)} in 0) in 0",       "cannot constrain int <: 'a -> 'b")
     doTest("(fun x -> (let y = (x x) in 0))",                             "'a ∧ ('a -> ⊤) -> int")
-    doTest("(let rec x = (fun y -> (y (x x))) in x)",                     "('b -> 'b ∧ 'a) as 'a -> 'b")
+    doTest("(let rec x = (fun y -> (y (x x))) in x)",                     "('a -> ('a ∧ ('a -> 'b)) as 'b) -> 'a")
+    // ^ Note: without canonicalization, we get the simpler:               ('b -> 'b ∧ 'a) as 'a -> 'b
     doTest("fun next -> 0",                                               "⊤ -> int")
     doTest("((fun x -> (x x)) (fun x -> x))",                             "('b ∨ ('b -> 'a)) as 'a")
     doTest("(let rec x = (fun y -> (x (y y))) in x)",                     "('b ∧ ('b -> 'a)) as 'a -> ⊥")
@@ -128,7 +132,9 @@ class TypingTests extends TypingTestHelpers {
     doTest("(let rec x = (fun y -> (let z = (y x) in y)) in x)",          "('b ∧ ('a -> ⊤) -> 'b) as 'a")
     doTest("(fun x -> (let y = (x x.v) in 0))",                           "{v: 'a} ∧ ('a -> ⊤) -> int")
     doTest("let rec x = (let y = (x x) in (fun z -> z)) in (x (fun y -> y.u))", // [test:T1]
-      "('b ∨ ('b ∧ {u: 'c} -> 'a ∨ 'c)) as 'a")
+      "'a ∨ ('a ∧ {u: 'b} -> ('a ∨ 'b ∨ ('a ∧ {u: 'b} -> 'c)) as 'c)")
+    // ^ Note: without canonicalization, we get the simpler:
+    // ('b ∨ ('b ∧ {u: 'c} -> 'a ∨ 'c)) as 'a
   }
   
   

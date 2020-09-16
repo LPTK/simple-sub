@@ -24,7 +24,7 @@ class TypingTestHelpers extends AnyFunSuite {
       println("inferred: " + tyv)
       println(" where " + tyv.showBounds)
     }
-    val cty = typer.compactType(tyv)
+    val cty = typer.canonicalizeType(tyv)
     if (dbg) println("compacted: " + cty)
     val sty = typer.simplifyType(cty)
     if (dbg) println("simplified: " + sty)
