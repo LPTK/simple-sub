@@ -13,8 +13,8 @@ trait TypeSimplifier { self: Typer =>
    * this represents either a union or an intersection, respectively,
    * of different type components.  */
   case class CompactType(
-    vars: Set[TypeVariable],
-    prims: Set[PrimType],
+    vars: Set[Variable],
+    prims: Set[Primitive],
     rec: Option[SortedMap[String, CompactType]],
     fun: Option[(CompactType, CompactType)])
   extends CompactTypeOrVariable {
@@ -35,7 +35,7 @@ trait TypeSimplifier { self: Typer =>
     }
   }
   
-  case class CompactTypeScheme(term: CompactType, recVars: Map[TypeVariable, CompactType])
+  case class CompactTypeScheme(term: CompactType, recVars: Map[Variable, CompactType])
   
   
   // Simplification:
@@ -48,26 +48,26 @@ trait TypeSimplifier { self: Typer =>
   def compactType(ty: SimpleType): CompactTypeScheme = {
     import CompactType.{empty, merge}, empty.{copy => ct}
     
-    val recursive = MutMap.empty[PolarVariable, TypeVariable]
-    var recVars = SortedMap.empty[TypeVariable, CompactType](Ordering by (_.uid))
+    val recursive = MutMap.empty[PolarVariable, Variable]
+    var recVars = SortedMap.empty[Variable, CompactType](Ordering by (_.uid))
     
     // `parents` remembers the variables whose bounds are being compacted,
     //    so as to remove spurious cycles such as ?a <: ?b and ?b <: ?a,
     //    which do not correspond to actual recursive types.
-    def go(ty: SimpleType, pol: Boolean, parents: Set[TypeVariable])
-          (implicit inProcess: Set[(TypeVariable, Boolean)]): CompactType = ty match {
-      case p: PrimType => ct(prims = Set(p))
-      case FunctionType(l, r) =>
+    def go(ty: SimpleType, pol: Boolean, parents: Set[Variable])
+          (implicit inProcess: Set[PolarVariable]): CompactType = ty match {
+      case p: Primitive => ct(prims = Set(p))
+      case Function(l, r) =>
         ct(fun = Some(go(l, !pol, Set.empty) -> go(r, pol, Set.empty)))
-      case RecordType(fs) =>
+      case Record(fs) =>
         ct(rec = Some(SortedMap from fs.iterator.map(f => f._1 -> go(f._2, pol, Set.empty))))
-      case tv: TypeVariable =>
+      case tv: Variable =>
         val bounds = if (pol) tv.lowerBounds else tv.upperBounds
         val tv_pol = tv -> pol
         if (inProcess.contains(tv_pol))
           if (parents(tv)) ct() // we have a spurious cycle: ignore the bound
           else ct(vars = Set(recursive.getOrElseUpdate(tv_pol, freshVar(0))))
-        else (inProcess + (tv -> pol)) pipe { implicit inProcess =>
+        else (inProcess + (tv_pol)) pipe { implicit inProcess =>
           val bound = bounds.map(b => go(b, pol, parents + tv))
             .foldLeft[CompactType](ct(vars = Set(tv)))(merge(pol))
           recursive.get(tv_pol) match {
@@ -77,7 +77,7 @@ trait TypeSimplifier { self: Typer =>
             case None => bound
           }
         }
-      }
+    }
     
     CompactTypeScheme(go(ty, true, Set.empty)(Set.empty), recVars)
   }
@@ -111,11 +111,11 @@ trait TypeSimplifier { self: Typer =>
     
     // State accumulated during the analysis phase:
     var allVars = SortedSet.from(cty.recVars.keysIterator)(Ordering by (-_.uid))
-    var recVars = SortedMap.empty[TypeVariable, () => CompactType](Ordering by (_.uid))
-    val coOccurrences: MutMap[(Boolean, TypeVariable), MutSet[SimpleType]] = LinkedHashMap.empty
+    var recVars = SortedMap.empty[Variable, () => CompactType](Ordering by (_.uid))
+    val coOccurrences: MutMap[(Boolean, Variable), MutSet[SimpleType]] = LinkedHashMap.empty
     
     // This will be filled up after the analysis phase, to influence the reconstruction phase:
-    val varSubst = MutMap.empty[TypeVariable, Option[TypeVariable]]
+    val varSubst = MutMap.empty[Variable, Option[Variable]]
     
     // Traverses the type, performing the analysis, and returns a thunk to reconstruct it later:
     def go(ty: CompactType, pol: Boolean): () => CompactType = {
@@ -168,7 +168,7 @@ trait TypeSimplifier { self: Typer =>
       println(s"[v] $v ${coOccurrences.get(true -> v)} ${coOccurrences.get(false -> v)}")
       pols.foreach { pol =>
         coOccurrences.get(pol -> v).iterator.flatMap(_.iterator).foreach {
-          case w: TypeVariable if !(w is v) && !varSubst.contains(w) && (recVars.contains(v) === recVars.contains(w)) =>
+          case w: Variable if !(w is v) && !varSubst.contains(w) && (recVars.contains(v) === recVars.contains(w)) =>
             // Note: We avoid merging rec and non-rec vars, because the non-rec one may not be strictly polar ^
             //       As an example of this, see [test:T1].
             println(s"[w] $w ${coOccurrences.get(pol -> w)}")
@@ -195,7 +195,7 @@ trait TypeSimplifier { self: Typer =>
                   // ^ `w` is not recursive, so `v` is not either, and the same reasoning applies
               }
             }; ()
-          case atom: PrimType if (coOccurrences.get(!pol -> v).exists(_(atom))) =>
+          case atom: Primitive if (coOccurrences.get(!pol -> v).exists(_(atom))) =>
             varSubst += v -> None; ()
           case _ =>
         }
@@ -206,11 +206,11 @@ trait TypeSimplifier { self: Typer =>
     CompactTypeScheme(gone(), recVars.view.mapValues(_()).toMap)
   }
   
-  /** Expands a CompactTypeScheme into a Type while performing hash-consing
+  /** Coalesces a CompactTypeScheme into a Type while performing hash-consing
    * to tie recursive type knots a bit tighter, when possible. */
-  def expandCompactType(cty: CompactTypeScheme): Type = {
+  def coalesceCompactType(cty: CompactTypeScheme): Type = {
     def go(ty: CompactTypeOrVariable, pol: Boolean)
-          (implicit inProcess: Map[(CompactTypeOrVariable, Boolean), () => TypeVar]): Type = {
+          (implicit inProcess: Map[(CompactTypeOrVariable, Boolean), () => TypeVariable]): Type = {
       inProcess.get(ty -> pol) match { // Note: we use pat-mat instead of `foreach` to avoid non-local return
         case Some(t) =>
           val res = t()
@@ -222,23 +222,23 @@ trait TypeSimplifier { self: Typer =>
       lazy val v = {
         isRecursive = true
         (ty match {
-          case tv: TypeVariable => tv
-          case _ => new TypeVariable(0, Nil, Nil)
+          case tv: Variable => tv
+          case _ => new Variable(0, Nil, Nil)
         }).asTypeVar
       }
       val res = inProcess + (ty -> pol -> (() => v)) pipe { implicit inProcess =>
         ty match {
-          case tv: TypeVariable => cty.recVars.get(tv).fold(tv.asTypeVar: Type)(go(_, pol))
+          case tv: Variable => cty.recVars.get(tv).fold(tv.asTypeVar: Type)(go(_, pol))
           case CompactType(vars, prims, rec, fun) =>
             val (extr, mrg) = if (pol) (Bot, Union) else (Top, Inter)
             (vars.iterator.map(go(_, pol)).toList
-              ::: prims.iterator.map(p => Primitive(p.name)).toList
-              ::: rec.map(fs => Record(fs.toList.map(f => f._1 -> go(f._2, pol)))).toList
-              ::: fun.map(lr => Function(go(lr._1, !pol), go(lr._2, pol))).toList
+              ::: prims.iterator.map(p => PrimitiveType(p.name)).toList
+              ::: rec.map(fs => RecordType(fs.toList.map(f => f._1 -> go(f._2, pol)))).toList
+              ::: fun.map(lr => FunctionType(go(lr._1, !pol), go(lr._2, pol))).toList
             ).reduceOption(mrg).getOrElse(extr)
         }
       }
-      if (isRecursive) Recursive(v, res) else res
+      if (isRecursive) RecursiveType(v, res) else res
     }
     go(cty.term, true)(Map.empty)
   }

@@ -10,25 +10,25 @@ final case class TypeError(msg: String) extends Exception(msg)
 
 /** A class encapsulating type inference state.
  *  It uses its own internal representation of types and type variables, using mutable data structures.
- *  Inferred SimpleType values are then turned into CompactType values for simplification.
- *  In order to turn the resulting CompactType into a simplesub.Type, we use `expandCompactType`.
+ *  Inferred SimpleType values are then turned into CompactType values for simplification (see TypeSimplifier.scala).
+ *  In order to turn the resulting CompactType into a simplesub.Type, we use `coalesceCompactType`.
  */
 class Typer(protected val dbg: Boolean) extends TyperDebugging {
   
   type Ctx = Map[String, TypeScheme]
   
-  val BoolType: PrimType = PrimType("bool")
-  val IntType: PrimType = PrimType("int")
+  val BoolType: Primitive = Primitive("bool")
+  val IntType: Primitive = Primitive("int")
   
   val builtins: Ctx = Map(
     "true" -> BoolType,
     "false" -> BoolType,
-    "not" -> FunctionType(BoolType, BoolType),
-    "succ" -> FunctionType(IntType, IntType),
-    "add" -> FunctionType(IntType, FunctionType(IntType, IntType)),
+    "not" -> Function(BoolType, BoolType),
+    "succ" -> Function(IntType, IntType),
+    "add" -> Function(IntType, Function(IntType, IntType)),
     "if" -> {
       val v = freshVar(1)
-      PolymorphicType(0, FunctionType(BoolType, FunctionType(v, FunctionType(v, v))))
+      PolymorphicType(0, Function(BoolType, Function(v, Function(v, v))))
     }
   )
   
@@ -64,20 +64,20 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
       case Lam(name, body) =>
         val param = freshVar
         val body_ty = typeTerm(body)(ctx + (name -> param), lvl)
-        FunctionType(param, body_ty)
+        Function(param, body_ty)
       case App(f, a) =>
         val f_ty = typeTerm(f)
         val a_ty = typeTerm(a)
-        constrain(f_ty, FunctionType(a_ty, res))
+        constrain(f_ty, Function(a_ty, res))
         res
       case Lit(n) =>
         IntType
       case Sel(obj, name) =>
         val obj_ty = typeTerm(obj)
-        constrain(obj_ty, RecordType((name, res) :: Nil))
+        constrain(obj_ty, Record((name, res) :: Nil))
         res
       case Rcd(fs) =>
-        RecordType(fs.map { case (n, t) => (n, typeTerm(t)) })
+        Record(fs.map { case (n, t) => (n, typeTerm(t)) })
       case Let(isrec, nme, rhs, bod) =>
         val n_ty = typeLetRhs(isrec, nme, rhs)
         typeTerm(bod)(ctx + (nme -> n_ty), lvl)
@@ -97,31 +97,31 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
       // type variables, as type variables will necessary be part of any possible cycles.
       // Since these types form regular trees, there will necessarily be a point where a
       // variable part of a cycle will be matched against the same type periodically.
-      case (_: TypeVariable, _) | (_, _: TypeVariable) =>
+      case (_: Variable, _) | (_, _: Variable) =>
         if (cache(lhs_rhs)) return
         cache += lhs_rhs
       case _ => ()
     }
     lhs_rhs match {
-      case (FunctionType(l0, r0), FunctionType(l1, r1)) =>
+      case (Function(l0, r0), Function(l1, r1)) =>
         constrain(l1, l0)
         constrain(r0, r1)
-      case (RecordType(fs0), RecordType(fs1)) =>
+      case (Record(fs0), Record(fs1)) =>
         fs1.foreach { case (n1, t1) =>
           fs0.find(_._1 === n1).fold(
             err(s"missing field: $n1 in ${lhs.show}")
           ) { case (n0, t0) => constrain(t0, t1) }
         }
-      case (lhs: TypeVariable, rhs) if rhs.level <= lhs.level =>
+      case (lhs: Variable, rhs) if rhs.level <= lhs.level =>
         lhs.upperBounds ::= rhs
         lhs.lowerBounds.foreach(constrain(_, rhs))
-      case (lhs, rhs: TypeVariable) if lhs.level <= rhs.level =>
+      case (lhs, rhs: Variable) if lhs.level <= rhs.level =>
         rhs.lowerBounds ::= lhs
         rhs.upperBounds.foreach(constrain(lhs, _))
-      case (_: TypeVariable, rhs0) =>
+      case (_: Variable, rhs0) =>
         val rhs = extrude(rhs0, false)(lhs.level, MutMap.empty)
         constrain(lhs, rhs)
-      case (lhs0, _: TypeVariable) =>
+      case (lhs0, _: Variable) =>
         val lhs = extrude(lhs0, true)(rhs.level, MutMap.empty)
         constrain(lhs, rhs)
       case _ => err(s"cannot constrain ${lhs.show} <: ${rhs.show}")
@@ -130,11 +130,11 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
   
   /** Copies a type up to its type variables of wrong level (and their extruded bounds). */
   def extrude(ty: SimpleType, pol: Boolean)
-      (implicit lvl: Int, cache: MutMap[TypeVariable, TypeVariable]): SimpleType =
+      (implicit lvl: Int, cache: MutMap[Variable, Variable]): SimpleType =
     if (ty.level <= lvl) ty else ty match {
-      case FunctionType(l, r) => FunctionType(extrude(l, !pol), extrude(r, pol))
-      case RecordType(fs) => RecordType(fs.map(nt => nt._1 -> extrude(nt._2, pol)))
-      case tv: TypeVariable => cache.getOrElse(tv, {
+      case Function(l, r) => Function(extrude(l, !pol), extrude(r, pol))
+      case Record(fs) => Record(fs.map(nt => nt._1 -> extrude(nt._2, pol)))
+      case tv: Variable => cache.getOrElse(tv, {
         val nvs = freshVar
         cache += tv -> nvs
         if (pol) { tv.upperBounds ::= nvs
@@ -143,18 +143,18 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
           nvs.upperBounds = tv.upperBounds.map(extrude(_, pol)) }
         nvs
       })
-      case PrimType(_) => ty
+      case Primitive(_) => ty
     }
   
   def err(msg: String): Nothing = throw TypeError(msg)
   
   private var freshCount = 0
-  def freshVar(implicit lvl: Int): TypeVariable = new TypeVariable(lvl, Nil, Nil)
+  def freshVar(implicit lvl: Int): Variable = new Variable(lvl, Nil, Nil)
   
   def freshenAbove(lim: Int, ty: SimpleType)(implicit lvl: Int): SimpleType = {
-    val freshened = MutMap.empty[TypeVariable, TypeVariable]
+    val freshened = MutMap.empty[Variable, Variable]
     def freshen(ty: SimpleType): SimpleType = if (ty.level <= lim) ty else ty match {
-      case tv: TypeVariable =>
+      case tv: Variable =>
         freshened.get(tv) match {
           case Some(tv) => tv
           case None =>
@@ -169,9 +169,9 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
             v.upperBounds = tv.upperBounds.reverse.map(freshen).reverse
             v
         }
-      case FunctionType(l, r) => FunctionType(freshen(l), freshen(r))
-      case RecordType(fs) => RecordType(fs.map(ft => ft._1 -> freshen(ft._2)))
-      case PrimType(_) => ty
+      case Function(l, r) => Function(freshen(l), freshen(r))
+      case Record(fs) => Record(fs.map(ft => ft._1 -> freshen(ft._2)))
+      case Primitive(_) => ty
     }
     freshen(ty)
   }
@@ -194,28 +194,28 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
     def level: Int
     def instantiate(implicit lvl: Int) = this
   }
-  case class FunctionType(lhs: SimpleType, rhs: SimpleType) extends SimpleType {
+  case class Function(lhs: SimpleType, rhs: SimpleType) extends SimpleType {
     lazy val level: Int = lhs.level max rhs.level
     override def toString = s"($lhs -> $rhs)"
   }
-  case class RecordType(fields: List[(String, SimpleType)]) extends SimpleType {
+  case class Record(fields: List[(String, SimpleType)]) extends SimpleType {
     lazy val level: Int = fields.iterator.map(_._2.level).maxOption.getOrElse(0)
     override def toString = s"{${fields.map(f => s"${f._1}: ${f._2}").mkString(", ")}}"
   }
-  case class PrimType(name: String) extends SimpleType {
+  case class Primitive(name: String) extends SimpleType {
     def level: Int = 0
     override def toString = name
   }
   /** A type variable living at a certain polymorphism level `level`, with mutable bounds.
    *  Invariant: Types appearing in the bounds never have a level higher than this variable's `level`. */
-  final class TypeVariable(
+  final class Variable(
       val level: Int,
       var lowerBounds: List[SimpleType],
       var upperBounds: List[SimpleType],
   ) extends SimpleType with CompactTypeOrVariable {
     private[simplesub] val uid: Int = { freshCount += 1; freshCount - 1 }
     private[simplesub] var recursiveFlag = false // used temporarily by `compactType`
-    lazy val asTypeVar = new TypeVar("α", uid)
+    lazy val asTypeVar = new TypeVariable("α", uid)
     override def toString: String = "α" + uid + "'" * level
     override def hashCode: Int = uid
   }
@@ -223,13 +223,13 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
   trait CompactTypeOrVariable
   
   
-  type PolarVariable = (TypeVariable, Boolean)
+  type PolarVariable = (Variable, Boolean)
   
   /** Convert an inferred SimpleType into the immutable Type representation. */
-  def expandType(st: SimpleType): Type = {
-    val recursive = mutable.Map.empty[PolarVariable, TypeVar]
+  def coalesceType(st: SimpleType): Type = {
+    val recursive = mutable.Map.empty[PolarVariable, TypeVariable]
     def go(st: SimpleType, polarity: Boolean)(inProcess: Set[PolarVariable]): Type = st match {
-      case tv: TypeVariable =>
+      case tv: Variable =>
         val tv_pol = tv -> polarity
         if (inProcess.contains(tv_pol))
           recursive.getOrElseUpdate(tv_pol, freshVar(0).asTypeVar)
@@ -238,11 +238,11 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
           val boundTypes = bounds.map(go(_, polarity)(inProcess + tv_pol))
           val mrg = if (polarity) Union else Inter
           val res = boundTypes.foldLeft[Type](tv.asTypeVar)(mrg)
-          recursive.get(tv_pol).fold(res)(Recursive(_, res))
+          recursive.get(tv_pol).fold(res)(RecursiveType(_, res))
         }
-      case FunctionType(l, r) => Function(go(l, !polarity)(inProcess), go(r, polarity)(inProcess))
-      case RecordType(fs) => Record(fs.map(nt => nt._1 -> go(nt._2, polarity)(inProcess)))
-      case PrimType(n) => Primitive(n)
+      case Function(l, r) => FunctionType(go(l, !polarity)(inProcess), go(r, polarity)(inProcess))
+      case Record(fs) => RecordType(fs.map(nt => nt._1 -> go(nt._2, polarity)(inProcess)))
+      case Primitive(n) => PrimitiveType(n)
     }
     go(st, true)(Set.empty)
   }

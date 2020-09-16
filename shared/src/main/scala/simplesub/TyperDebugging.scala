@@ -14,15 +14,15 @@ abstract class TyperDebugging { self: Typer =>
   trait SimpleTypeImpl { self: SimpleType =>
     
     def children: List[SimpleType] = this match {
-      case tv: TypeVariable => tv.lowerBounds ::: tv.upperBounds
-      case FunctionType(l, r) => l :: r :: Nil
-      case RecordType(fs) => fs.map(_._2)
-      case PrimType(_) => Nil
+      case tv: Variable => tv.lowerBounds ::: tv.upperBounds
+      case Function(l, r) => l :: r :: Nil
+      case Record(fs) => fs.map(_._2)
+      case Primitive(_) => Nil
     }
-    def getVars: Set[TypeVariable] = {
-      val res = MutSet.empty[TypeVariable]
+    def getVars: Set[Variable] = {
+      val res = MutSet.empty[Variable]
       @tailrec def rec(queue: List[SimpleType]): Unit = queue match {
-        case (tv: TypeVariable) :: tys =>
+        case (tv: Variable) :: tys =>
           if (res(tv)) rec(tys)
           else { res += tv; rec(tv.children ::: tys) }
         case ty :: tys => rec(ty.children ::: tys)
@@ -31,7 +31,7 @@ abstract class TyperDebugging { self: Typer =>
       rec(this :: Nil)
       SortedSet.from(res)(Ordering.by(_.uid))
     }
-    def show: String = expandType(this).show
+    def show: String = coalesceType(this).show
     def showBounds: String =
       getVars.iterator.filter(tv => (tv.upperBounds ++ tv.lowerBounds).nonEmpty).map(tv =>
         tv.toString

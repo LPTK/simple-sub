@@ -88,7 +88,7 @@ object MLsubTests extends scala.App {{
       val ty = typer.inferType(trm)
       val cty = typer.compactType(ty)
       val sty = typer.simplifyType(cty)
-      val ety = typer.expandCompactType(sty)
+      val ety = typer.coalesceCompactType(sty)
       ety.showAsMLsub
     } catch { case _: TypeError => typeErrStr }
     out.println("  Simpl:  " + ans)

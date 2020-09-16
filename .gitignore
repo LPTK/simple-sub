@@ -1,6 +1,9 @@
 target/
+.vscode/
 .bloop/
 .metals/
 project/Dependencies.scala
 project/metals.sbt
+project/project/
 **.worksheet.sc
+mlsub/

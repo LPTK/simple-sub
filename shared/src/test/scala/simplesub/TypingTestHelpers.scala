@@ -6,9 +6,10 @@ import Parser.expr
 import fastparse.Parsed.Failure
 import fastparse.Parsed.Success
 import sourcecode.Line
+import org.scalatest.funsuite.AnyFunSuite
 
 @SuppressWarnings(Array("org.wartremover.warts.Equals"))
-class TypingTestHelpers extends FunSuite {
+class TypingTestHelpers extends AnyFunSuite {
   
   def doTest(str: String, expected: String = "")(implicit line: Line): Unit = {
     val dbg = expected.isEmpty
@@ -27,10 +28,10 @@ class TypingTestHelpers extends FunSuite {
     if (dbg) println("compacted: " + cty)
     val sty = typer.simplifyType(cty)
     if (dbg) println("simplified: " + sty)
-    val ety = typer.expandCompactType(sty)
+    val ety = typer.coalesceCompactType(sty)
     if (dbg) {
-      println("expanded raw: " + ety)
-      println("expanded: " + ety.show)
+      println("coalesced raw: " + ety)
+      println("coalesced: " + ety.show)
     }
     
     val res = ety.show

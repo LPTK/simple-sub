@@ -75,7 +75,7 @@ object Main {
               println(s"Compact type before simplification: ${com}")
               val sim = Typer.simplifyType(com)
               println(s"Compact type after simplification: ${sim}")
-              val exp = Typer.expandCompactType(sim)
+              val exp = Typer.coalesceCompactType(sim)
               s"""<b>
                   <font color="#93a1a1">val </font>
                   <font color="LightGreen">${d._2}</font>: 

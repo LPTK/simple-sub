@@ -6,9 +6,10 @@ import Parser.pgrm
 import fastparse.Parsed.Failure
 import fastparse.Parsed.Success
 import sourcecode.Line
+import org.scalatest.funsuite.AnyFunSuite
 
 @SuppressWarnings(Array("org.wartremover.warts.Equals"))
-class ProgramTests extends FunSuite {
+class ProgramTests extends AnyFunSuite {
   
   implicit class ExpectedStr(val str: String)(implicit val line: Line)
   
@@ -22,7 +23,7 @@ class ProgramTests extends FunSuite {
       val ty = pty.fold(err => throw err, _.instantiate(0))
       val cty = typer.compactType(ty)
       val sty = typer.simplifyType(cty)
-      val res = typer.expandCompactType(sty).show
+      val res = typer.coalesceCompactType(sty).show
       if (exp.str.nonEmpty) { assert(res == exp.str, "at line " + exp.line.value); () }
       else {
         println("inferred: " + ty)
@@ -102,7 +103,7 @@ class ProgramTests extends FunSuite {
     )
   }
   
-  test("blah") {
+  test("misc") {
     doTest("""
       // 
       // From a comment on the blog post:

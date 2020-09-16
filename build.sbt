@@ -2,7 +2,7 @@ import Wart._
 
 enablePlugins(ScalaJSPlugin)
 
-ThisBuild / scalaVersion     := "2.13.1"
+ThisBuild / scalaVersion     := "2.13.3"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
 ThisBuild / organization     := "io.lptk"
 ThisBuild / organizationName := "LPTK"
@@ -32,14 +32,14 @@ lazy val simplesub = crossProject(JSPlatform, JVMPlatform).in(file("."))
       LeakingSealed,
       Option2Iterable, TraversableOps,
     ),
-    libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.8" % Test,
+    libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.2" % Test,
     libraryDependencies += "com.lihaoyi" %%% "sourcecode" % "0.2.1",
-    libraryDependencies += "com.lihaoyi" %%% "fastparse" % "2.2.4",
+    libraryDependencies += "com.lihaoyi" %%% "fastparse" % "2.3.0",
   )
   .jsSettings(
     scalaJSUseMainModuleInitializer := true,
-    libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "0.9.8",
-    libraryDependencies += "be.doeraene" %%% "scalajs-jquery" % "0.9.6",
+    libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "1.1.0",
+    libraryDependencies += "be.doeraene" %%% "scalajs-jquery" % "1.0.0",
   )
 
 lazy val simplesubJVM = simplesub.jvm.settings(

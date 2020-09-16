@@ -9,19 +9,19 @@ object Helpers {
     }
     
     private def parensIf(str: String, cnd: Boolean): String = if (cnd) "(" + str + ")" else str
-    def showAsMLsubIn(ctx: Map[TypeVar, String], outerPrec: Int): String = ty match {
+    def showAsMLsubIn(ctx: Map[TypeVariable, String], outerPrec: Int): String = ty match {
       case Top => "Top"
       case Bot => "Bot"
-      case Primitive(name) => name
-      case uv: TypeVar => ctx(uv)
-      case Recursive(n, b) => parensIf(s"rec ${ctx(n)} = ${b.showAsMLsubIn(ctx, 31)}", outerPrec > 10)
-      case Function(l, r) => parensIf(l.showAsMLsubIn(ctx, 11) + " -> " + r.showAsMLsubIn(ctx, 10), outerPrec > 10)
-      case Record(fs) => fs.map(nt => s"${nt._1}: ${nt._2.showAsMLsubIn(ctx, 0)}").mkString("{", "; ", "}")
+      case PrimitiveType(name) => name
+      case uv: TypeVariable => ctx(uv)
+      case RecursiveType(n, b) => parensIf(s"rec ${ctx(n)} = ${b.showAsMLsubIn(ctx, 31)}", outerPrec > 10)
+      case FunctionType(l, r) => parensIf(l.showAsMLsubIn(ctx, 11) + " -> " + r.showAsMLsubIn(ctx, 10), outerPrec > 10)
+      case RecordType(fs) => fs.map(nt => s"${nt._1}: ${nt._2.showAsMLsubIn(ctx, 0)}").mkString("{", "; ", "}")
       case Union(l, r) => parensIf(l.showAsMLsubIn(ctx, 20) + " | " + r.showAsMLsubIn(ctx, 20), outerPrec > 20)
       case Inter(l, r) => parensIf(l.showAsMLsubIn(ctx, 25) + " & " + r.showAsMLsubIn(ctx, 25), outerPrec > 25)
     }
     
-    def mkCtx(addTicks: Boolean): Map[TypeVar, String] = {
+    def mkCtx(addTicks: Boolean): Map[TypeVariable, String] = {
       val vars = ty.typeVarsList.distinct
       vars.zipWithIndex.map {
         case (tv, idx) =>
