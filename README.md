@@ -8,6 +8,30 @@ An online demo is available here: https://lptk.github.io/simple-sub/
 The corresponding ICFP Pearl paper preprint can be downloaded here: https://lptk.github.io/simple-sub-paper
 
 
+## ICFP 2020
+
+This branch of the repository (called `mlsub-compare`)
+contains the precise material corresponding to the ICFP 2020 paper mentioned above.
+
+### Line number claims
+
+In the paper, I claim that
+"inferring MLsub types is surprisingly easy, and can be done in under 300 lines of Scala code,
+with an additional 200 lines of code for simplification and pretty-printing".
+
+The "less than 300 lines" claim refers to
+the parsing, syntax definitions, type inference, and auxillary code in
+`Parser.scala`, `Typer.scala`, `TyperHelpers.scala`, and `package.scala`.
+These amount to 262 lines of code as measured by [the cloc tool](https://github.com/AlDanial/cloc) (which ignores comments and blank lines).  
+
+The optional simplification and pretty-printing code
+lines in `TypeSimplifier.scala` and `helpers.scala`,
+which contain respectively 169 and 43 lines of code.
+
+Thus, the total number of lines of code for all these functionalities
+is 262 + 169 + 43 = 474 < 500.
+
+
 ## Running the tests
 
 Running the tests only requires the Scala Build Tool installed.
