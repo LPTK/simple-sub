@@ -98,6 +98,12 @@ class TypingTests extends TypingTestHelpers {
       "'a -> {a: 'a, b: bool}")
     doTest("fun y -> let f = fun x -> x y in {a = f (fun z -> z); b = f (fun z -> succ z)}",
       "'a ∧ int -> {a: 'a, b: int}")
+    
+    error("(fun k -> k (fun x -> let tmp = add x 1 in x)) (fun f -> f true)",
+      "cannot constrain bool <: int")
+    // Let-binding a part in the above test:
+    error("(fun k -> let test = k (fun x -> let tmp = add x 1 in x) in test) (fun f -> f true)",
+      "cannot constrain bool <: int")
   }
   
   test("recursion") {

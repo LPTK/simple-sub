@@ -119,28 +119,28 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
         rhs.lowerBounds ::= lhs
         rhs.upperBounds.foreach(constrain(lhs, _))
       case (_: Variable, rhs0) =>
-        val rhs = extrude(rhs0, false)(lhs.level, MutMap.empty)
+        val rhs = extrude(rhs0)(lhs.level, MutMap.empty)
         constrain(lhs, rhs)
       case (lhs0, _: Variable) =>
-        val lhs = extrude(lhs0, true)(rhs.level, MutMap.empty)
+        val lhs = extrude(lhs0)(rhs.level, MutMap.empty)
         constrain(lhs, rhs)
       case _ => err(s"cannot constrain ${lhs.show} <: ${rhs.show}")
     }
   }
   
   /** Copies a type up to its type variables of wrong level (and their extruded bounds). */
-  def extrude(ty: SimpleType, pol: Boolean)
+  def extrude(ty: SimpleType)
       (implicit lvl: Int, cache: MutMap[Variable, Variable]): SimpleType =
     if (ty.level <= lvl) ty else ty match {
-      case Function(l, r) => Function(extrude(l, !pol), extrude(r, pol))
-      case Record(fs) => Record(fs.map(nt => nt._1 -> extrude(nt._2, pol)))
+      case Function(l, r) => Function(extrude(l), extrude(r))
+      case Record(fs) => Record(fs.map(nt => nt._1 -> extrude(nt._2)))
       case tv: Variable => cache.getOrElse(tv, {
         val nvs = freshVar
         cache += tv -> nvs
-        if (pol) { tv.upperBounds ::= nvs
-          nvs.lowerBounds = tv.lowerBounds.map(extrude(_, pol)) }
-        else { tv.lowerBounds ::= nvs
-          nvs.upperBounds = tv.upperBounds.map(extrude(_, pol)) }
+        nvs.lowerBounds = tv.lowerBounds.map(extrude)
+        nvs.upperBounds = tv.upperBounds.map(extrude)
+        tv.upperBounds ::= nvs
+        tv.lowerBounds ::= nvs
         nvs
       })
       case Primitive(_) => ty
