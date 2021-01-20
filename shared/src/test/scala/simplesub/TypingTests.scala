@@ -109,9 +109,20 @@ class TypingTests extends TypingTestHelpers {
   test("recursion") {
     doTest("let rec f = fun x -> f x.u in f",
       "{u: 'a} as 'a -> ⊥")
+    
+    // [test:T2]:
     doTest("let rec r = fun a -> r in if true then r else r",
       "(⊤ -> 'a) as 'a")
-    // ^ [test:T2] without canonicalization, we get the type: ⊤ -> (⊤ -> 'a) as 'a ∨ (⊤ -> 'b) as 'b
+    // ^ without canonicalization, we get the type:
+    //    ⊤ -> (⊤ -> 'a) as 'a ∨ (⊤ -> 'b) as 'b
+    doTest("let rec l = fun a -> l in let rec r = fun a -> fun a -> r in if true then l else r",
+      "(⊤ -> ⊤ -> 'a) as 'a")
+    // ^ without canonicalization, we get the type:
+    //    ⊤ -> (⊤ -> 'a) as 'a ∨ (⊤ -> (⊤ -> ⊤ -> 'b) as 'b)
+    doTest("let rec l = fun a -> fun a -> fun a -> l in let rec r = fun a -> fun a -> r in if true then l else r",
+      "(⊤ -> ⊤ -> ⊤ -> ⊤ -> ⊤ -> ⊤ -> 'a) as 'a") // 6 is the LCD of 3 and 2
+    // ^ without canonicalization, we get the type:
+    //    ⊤ -> ⊤ -> (⊤ -> ⊤ -> 'a) as 'a ∨ (⊤ -> (⊤ -> ⊤ -> ⊤ -> 'b) as 'b)
     
     // from https://www.cl.cam.ac.uk/~sd601/mlsub/
     doTest("let rec recursive_monster = fun x -> { thing = x; self = recursive_monster x } in recursive_monster",
@@ -132,9 +143,9 @@ class TypingTests extends TypingTestHelpers {
     doTest("(let rec x = (let y = (x x) in (fun z -> z)) in x)",          "'a -> ('a ∨ ('a -> 'b)) as 'b")
     doTest("(let rec x = (fun y -> (let z = (x x) in y)) in x)",          "'a -> ('a ∨ ('a -> 'b)) as 'b")
     doTest("(let rec x = (fun y -> {u = y; v = (x x)}) in x)",
-      "'a -> {u: 'a ∨ ('a -> 'b), v: 'b} as 'b")
+      "'a -> {u: 'a ∨ ('a -> 'b), v: 'c} as 'c as 'b")
     doTest("(let rec x = (fun y -> {u = (x x); v = y}) in x)",
-      "'a -> {u: 'b, v: 'a ∨ ('a -> 'b)} as 'b")
+      "'a -> {u: 'c, v: 'a ∨ ('a -> 'b)} as 'c as 'b")
     doTest("(let rec x = (fun y -> (let z = (y x) in y)) in x)",          "('b ∧ ('a -> ⊤) -> 'b) as 'a")
     doTest("(fun x -> (let y = (x x.v) in 0))",                           "{v: 'a} ∧ ('a -> ⊤) -> int")
     doTest("let rec x = (let y = (x x) in (fun z -> z)) in (x (fun y -> y.u))", // [test:T1]

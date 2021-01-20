@@ -83,21 +83,27 @@ trait TypeSimplifier { self: Typer =>
     CompactTypeScheme(go(ty, true, Set.empty)(Set.empty), recVars)
   }
   
-  /** Like `compactType` (convert SimpleType to CompactType), but also make sure to produce a 'canonicalized' compact type,
-   * that is: a type where all co-occurring recursive types are merged — and if they have different cycle lengths,
-   * we create a new recursive type whose cycle length is the LCD of the respective original cycle lengths.
-   * To do this, while detecting recursive types, we keep track of _sets_ of traversed variables (instead of single
-   * variables, as in `compactType`).
-   * This requires an interleaved two-phase process where we first transitively merge all bounds of all co-occurring
-   * variables in the outer layer of the source type, and then traverse the resulting sets of variables further.
-   * This "unrolling of recursive types until they align" process is akin to the powerset construction for
-   * turning NFAs into DFAs, and can in principle result in an exponentially larger type, though in practice the
-   * algorithm does often result in useful simplification down the line (for instance, see [test:T2]). */
+  /** Like `compactType` (convert SimpleType to CompactType),
+   * but also make sure to produce a 'canonicalized' compact type,
+   * that is: a type where all co-occurring recursive types are merged
+   *  — and if they have different cycle lengths,
+   *    we create a new recursive type whose cycle length is the LCD
+   *    of the respective original cycle lengths.
+   * To do this, while compacting the type we keep track of traversed compact types
+   *  (instead of keeping track of mere single variables, as in `compactType`).
+   * This requires an interleaved two-phase process where we first transitively merge
+   * all bounds of all co-occurring variables in the outer layer of the source type,
+   * and then traverse the resulting sets of variables further.
+   * This "unrolling of recursive types until they align" process is akin to
+   * the powerset construction for turning NFAs into DFAs,
+   * and can in principle result in an exponentially larger type,
+   * though in practice the algorithm often result in good simplifications down the line
+   * (for instance, see [test:T2]). */
   def canonicalizeType(ty: SimpleType): CompactTypeScheme = {
     import CompactType.{empty, merge}, empty.{copy => ct}
     
-    type PolarVariables = (Set[Variable], Boolean)
-    val recursive = MutMap.empty[PolarVariables, Variable]
+    type PolarType = (CompactType, Boolean)
+    val recursive = MutMap.empty[PolarType, Variable]
     var recVars = SortedMap.empty[Variable, CompactType](Ordering by (_.uid))
     
     // Turn the outermost layer of a SimpleType into a CompactType, leaving type variables untransformed
@@ -119,10 +125,10 @@ trait TypeSimplifier { self: Typer =>
     
     // Merge the bounds of all type variables of the given CompactType, and traverse the result
     def go1(ty: CompactType, pol: Boolean)
-           (implicit inProcess: Set[PolarVariables]): CompactType = if (ty.isEmpty) ty else {
-      val tvs = ty.vars -> pol
-      if (inProcess.contains(tvs))
-        ct(vars = Set(recursive.getOrElseUpdate(tvs, freshVar(0))))
+           (implicit inProcess: Set[PolarType]): CompactType = if (ty.isEmpty) ty else {
+      val pty = ty -> pol
+      if (inProcess.contains(pty))
+        ct(vars = Set(recursive.getOrElseUpdate(pty, freshVar(0))))
       else {
         val bound = ty.vars.iterator.flatMap { tv =>
           val bounds = if (pol) tv.lowerBounds else tv.upperBounds
@@ -132,13 +138,13 @@ trait TypeSimplifier { self: Typer =>
           }
         }.reduceOption(merge(pol)).getOrElse(empty)
         val res = merge(pol)(ty, bound)
-        (if (ty.vars.isEmpty) inProcess else inProcess + tvs) pipe { implicit inProcess =>
+        (inProcess + pty) pipe { implicit inProcess =>
           val adapted = CompactType(
             res.vars, res.prims,
             res.rec.map(fs => fs.map(kv => kv._1 -> go1(kv._2, pol))),
             res.fun.map(lr => go1(lr._1, !pol) -> go1(lr._2, pol)),
           )
-          recursive.get(tvs) match {
+          recursive.get(pty) match {
             case Some(v) =>
               recVars += v -> adapted
               ct(vars = Set(v))
