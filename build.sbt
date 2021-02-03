@@ -34,7 +34,7 @@ lazy val simplesub = crossProject(JSPlatform, JVMPlatform).in(file("."))
     ),
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.3" % Test,
     libraryDependencies += "com.lihaoyi" %%% "sourcecode" % "0.2.3",
-    libraryDependencies += "com.lihaoyi" %%% "fastparse" % "2.3.0",
+    libraryDependencies += "com.lihaoyi" %%% "fastparse" % "2.3.1",
   )
   .jsSettings(
     scalaJSUseMainModuleInitializer := true,
