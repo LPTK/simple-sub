@@ -13,9 +13,11 @@ class ParserTests extends AnyFunSuite {
     parse(str, expr(_), verboseFailures = true) match {
       case Success(value, index) =>
         // println("OK: " + value)
-      case f @ Failure(expected, failIndex, extra) =>
-        println(extra.trace())
-        println(extra.trace().longAggregateMsg)
+      case f: Failure =>
+      // case f @ Failure(expected, failIndex, extra) =>
+      // ^ yields pattern match inexhaustiveness warning because fastparse does not type the extractor tightly enough
+        println(f.extra.trace())
+        println(f.extra.trace().longAggregateMsg)
         assert(false)
     }
     ()
