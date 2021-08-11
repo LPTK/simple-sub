@@ -104,6 +104,59 @@ class TypingTests extends TypingTestHelpers {
     // Let-binding a part in the above test:
     error("(fun k -> let test = k (fun x -> let tmp = add x 1 in x) in test) (fun f -> f true)",
       "cannot constrain bool <: int")
+    
+    
+    // Simple example of extruding type variables constrained both ways:
+    doTest("fun k -> let test = k (fun x -> let tmp = add x 1 in x) in test",
+      "(('a ∧ int -> 'a) -> 'b) -> 'b")
+    // MLsub: ((((int & a) -> a) -> b) -> b)
+    
+    // Adapted to exhibit a problem if we use the old extrusion algorithm:
+    doTest("fun k -> let test = k (fun x -> let tmp = add x 1 in if true then x else 2) in test",
+      "((int -> int) -> 'a) -> 'a")
+    // MLsub: ((((int & a) -> (int | a)) -> b) -> b)
+    
+    // Example loss of polymorphism due to extrusion – the identity function becomes less polymorphic:
+    doTest("fun k -> let test = (fun id -> {tmp = k id; res = id}.res) (fun x -> x) in {u=test 0; v=test true}",
+      "(('a -> 'a ∨ bool ∨ int) -> ⊤) -> {u: 'a ∨ int, v: 'a ∨ bool}")
+    // MLsub: (((a -> (bool | int | a)) -> Top) -> {u : (int | a), v : (bool | a)})
+    
+    // Compared with this version: (MLsub still agrees)
+    doTest("fun k -> let test = {tmp = k (fun x -> x); res = (fun x -> x)}.res in {u=test 0; v=test true}",
+      "(('a -> 'a) -> ⊤) -> {u: int, v: bool}")
+    
+    doTest("fun k -> let test = (fun thefun -> {l=k thefun; r=thefun 1}) (fun x -> let tmp = add x 1 in x) in test",
+      "(('a ∧ int -> 'a ∨ int) -> 'b) -> {l: 'b, r: int}")
+    
+    
+    doTest("fun a -> (fun k -> let test = k (fun x -> let tmp = add x 1 in x) in test) (fun f -> f a)",
+      "'a ∧ int -> 'a")
+    
+    doTest("(fun k -> let test = k (fun x -> let tmp = (fun y -> add y 1) x in x) in test)",
+      "(('a ∧ int -> 'a) -> 'b) -> 'b")
+    
+    doTest("(fun k -> let test = k (fun x -> let tmp = let f = fun y -> add y 1 in f x in x) in test)",
+      "(('a ∧ int -> 'a) -> 'b) -> 'b")
+    
+    doTest("fun f -> let r = fun x -> fun g -> { a = f x; b = g x } in r",
+      "('a -> 'b) -> 'a -> ('a -> 'c) -> {a: 'b, b: 'c}")
+    
+    doTest("fun f -> let r = fun x -> fun g -> { a = g x } in {u = r 0 succ; v = r true not}",
+      "⊤ -> {u: {a: int}, v: {a: bool}}")
+    // MLsub:
+    //   let res = fun f -> let r = fun x -> fun g -> { a = g x } in {u = r 0 (fun n -> n + 1); v = r {t=true} (fun y -> y.t)}
+    //   val res : (Top -> {u : {a : int}, v : {a : bool}})
+    
+    doTest("fun f -> let r = fun x -> fun g -> { a = g x; b = f x } in {u = r 0 succ; v = r true not}",
+      "(bool ∨ int -> 'a) -> {u: {a: int, b: 'a}, v: {a: bool, b: 'a}}")
+    
+    doTest("fun f -> let r = fun x -> fun g -> { a = g x; b = f x } in {u = r 0 succ; v = r {t=true} (fun y -> y.t)}",
+      "(int ∨ {t: bool} -> 'a) -> {u: {a: int, b: 'a}, v: {a: bool, b: 'a}}")
+    // MLsub:
+    //   let res = fun f -> let r = fun x -> fun g -> { a = g x; b = f x } in {u = r 0 (fun n -> n + 1); v = r {t=true} (fun y -> y.t)}
+    //   val res : (({t : bool} | int -> a) -> {u : {a : int, b : a}, v : {a : bool, b : a}})
+    
+    
   }
   
   test("recursion") {
