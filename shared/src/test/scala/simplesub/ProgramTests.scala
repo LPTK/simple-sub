@@ -18,20 +18,23 @@ class ProgramTests extends AnyFunSuite {
     val Success(p, index) = parse(str, pgrm(_), verboseFailures = true)
     val typer = new Typer(dbg) with TypeSimplifier
     val tys = typer.inferTypes(p)
+    var toPrint: List[String] = Nil
     (p.defs lazyZip tys lazyZip expected).foreach { (str, pty, exp) =>
       if (exp.str.isEmpty) println(s">>> $str")
       val ty = pty.fold(err => throw err, _.instantiate(0))
-      val cty = typer.compactType(ty)
+      val cty = typer.canonicalizeType(ty)
       val sty = typer.simplifyType(cty)
       val res = typer.coalesceCompactType(sty).show
       if (exp.str.nonEmpty) { assert(res == exp.str, "at line " + exp.line.value); () }
       else {
+        toPrint ::= res
         println("inferred: " + ty)
         println(" where " + ty.showBounds)
         println(res)
         println("---")
       }
     }
+    if (toPrint.nonEmpty) toPrint.reverseIterator.foreach(s => println("Inferred: " + s))
     assert(tys.size == expected.size); ()
   }
   
@@ -93,8 +96,7 @@ class ProgramTests extends AnyFunSuite {
       "int",
       "{head: int, tail: {head: int, tail: 'a}} as 'a",
       "int",
-      "bool -> {head: int, tail: {head: int, tail: {head: int, tail: 'a} as 'a " +
-        "∨ {head: int, tail: {head: int, tail: {head: int, tail: 'b}} as 'b}}}",
+      "bool -> {head: int, tail: {head: int, tail: 'a}} as 'a",
         // ^ simplifying this would probably require more advanced
         // automata-based techniques such as the one proposed by Dolan
       "bool -> int",
@@ -130,26 +132,30 @@ class ProgramTests extends AnyFunSuite {
     """)(
       "(⊤ -> 'a) as 'a",
       "'a -> 'a -> 'a",
-      "⊤ -> (⊤ -> 'a) as 'a ∨ (⊤ -> 'b) as 'b", // could simplify more
+      "(⊤ -> 'a) as 'a",
       
       "{tail: 'a} as 'a -> ⊤ -> int",
       "{tail: 'a} as 'a -> {tail: 'b} as 'b -> int",
       "{tail: 'a} as 'a -> {tail: 'b} as 'b -> int",
       "{tail: 'a} as 'a -> {tail: 'b} as 'b -> int",
-      "{tail: 'b ∧ 'a} as 'b as 'a -> {tail: 'c ∧ 'd} as 'd as 'c -> int", // could simplify more (double rec type)
-      // ^ MLsub says:
+      "{tail: {tail: 'a} as 'a} -> {tail: {tail: 'b} as 'b} -> int",
+      // ^ Could simplify more `{tail: {tail: 'a} as 'a}` to `{tail: 'a} as 'a`
+      //    This would likely require another hash-consing pass.
+      //    Indeed, currently, we coalesce {tail: ‹{tail: ‹α25›}›} and it's hash-consing
+      //    which introduces the 'a to stand for {tail: ‹α25›}
+      // ^ Note: MLsub says:
       //    let rec f = fun x -> fun y -> (f x.tail x) + (f y.tail y)
       //    val f : ({tail : (rec b = {tail : b})} -> ({tail : {tail : (rec a = {tail : a})}} -> int))
-      "({tail: 'a} ∧ {tail: 'a}) as 'a -> {tail: ('b ∧ {tail: 'c}) as 'c} as 'b -> int", // could simplify more (the {tail: 'a} ∧ {tail: 'a})
-      // ^ MLsub says:
+      "{tail: 'a} as 'a -> {tail: {tail: 'b} as 'b} -> int",
+      // ^ Note: MLsub says:
       //    let rec f = fun x -> fun y -> (f x.tail x.tail) + (f y.tail y.tail)
       //    val f : ({tail : {tail : (rec b = {tail : b})}} -> ({tail : {tail : (rec a = {tail : a})}} -> int))
-      "({tail: 'a} ∧ {tail: 'a}) as 'a -> {tail: ('b ∧ {tail: 'c}) as 'c} as 'b -> int",
+      "{tail: 'a} as 'a -> {tail: {tail: 'b} as 'b} -> int",
       
       "'a -> 'a -> {l: 'a, r: 'a}",
       
       "('b ∧ {t: 'a}) as 'a -> {t: 'c} as 'c -> ('b ∨ {t: 'd}) as 'd",
-      // ^ MLsub says:
+      // ^ Note: MLsub says:
       //    let rec f = fun x -> fun y -> if true then x else { t = f x.t y.t }
       //    val f : (({t : (rec d = ({t : d} & a))} & a) -> ({t : (rec c = {t : c})} -> ({t : (rec b = ({t : b} | a))} | a)))
       // ^ Pottier says a simplified version would essentially be, once translated to MLsub types:

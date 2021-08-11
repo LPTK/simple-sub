@@ -2,6 +2,7 @@ target/
 .vscode/
 .bloop/
 .metals/
+.bsp/
 project/Dependencies.scala
 project/metals.sbt
 project/project/

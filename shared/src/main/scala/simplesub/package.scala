@@ -35,4 +35,12 @@ package object simplesub {
   def mergeSortedMap[A: Ordering, B](lhs: Iterable[(A, B)], rhs: Iterable[(A, B)])(f: (B, B) => B): SortedMap[A,B] =
     SortedMap.from(mergeMap(lhs, rhs)(f))
   
+  def closeOver[A](xs: Set[A])(f: A => Set[A]): Set[A] =
+    closeOverCached(Set.empty, xs)(f)
+  def closeOverCached[A](done: Set[A], todo: Set[A])(f: A => Set[A]): Set[A] =
+    if (todo.isEmpty) done else {
+      val newDone = done ++ todo
+      closeOverCached(newDone, todo.flatMap(f) -- newDone)(f)
+    }
+  
 }

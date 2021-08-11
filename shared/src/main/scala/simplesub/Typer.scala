@@ -128,19 +128,31 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
     }
   }
   
+  type PolarVariable = (Variable, Boolean)
+  
   /** Copies a type up to its type variables of wrong level (and their extruded bounds). */
   def extrude(ty: SimpleType, pol: Boolean)
-      (implicit lvl: Int, cache: MutMap[Variable, Variable]): SimpleType =
+      (implicit lvl: Int, cache: MutMap[PolarVariable, Variable]): SimpleType =
+      // Note that we need to keep a cache of _polar_ type variables, the idea being that if a
+      // variable v is extruded, two new variables should be created, one for each of v's bounds
+      // (unless of course the variable occurs strictly positively or negatively, in which case
+      // one of the two bounds can be discarded). This way, we essentially create a conservative
+      // approximation of v in the result of the extrusion, and any later instantiation of v
+      // (created at every point the nested let binding is used) will be able to receive
+      // additional constraints independently as long as it is within these approximating bounds.
     if (ty.level <= lvl) ty else ty match {
       case Function(l, r) => Function(extrude(l, !pol), extrude(r, pol))
       case Record(fs) => Record(fs.map(nt => nt._1 -> extrude(nt._2, pol)))
-      case tv: Variable => cache.getOrElse(tv, {
+      case tv: Variable => cache.getOrElse(tv -> pol, {
         val nvs = freshVar
-        cache += tv -> nvs
-        if (pol) { tv.upperBounds ::= nvs
-          nvs.lowerBounds = tv.lowerBounds.map(extrude(_, pol)) }
-        else { tv.lowerBounds ::= nvs
-          nvs.upperBounds = tv.upperBounds.map(extrude(_, pol)) }
+        cache += tv -> pol -> nvs
+        if (pol) {
+          tv.upperBounds ::= nvs
+          nvs.lowerBounds = tv.lowerBounds.map(extrude(_, pol))
+        } else {
+          tv.lowerBounds ::= nvs
+          nvs.upperBounds = tv.upperBounds.map(extrude(_, pol))
+        }
         nvs
       })
       case Primitive(_) => ty
@@ -222,8 +234,6 @@ class Typer(protected val dbg: Boolean) extends TyperDebugging {
   
   trait CompactTypeOrVariable
   
-  
-  type PolarVariable = (Variable, Boolean)
   
   /** Convert an inferred SimpleType into the immutable Type representation. */
   def coalesceType(st: SimpleType): Type = {
