@@ -15,6 +15,9 @@ contains the precise material corresponding to the ICFP 2020 paper mentioned abo
 
 ### Line number claims
 
+**[Update: these claims apply to [the state of the branch at the time of submission to ICFP](https://github.com/LPTK/simple-sub/tree/252908c452c9f48643ecb57b69cc2e41cd7483da).
+Some non-essential code was added in the meantime.]**
+
 In the paper, I claim that
 "inferring MLsub types is surprisingly easy, and can be done in under 300 lines of Scala code,
 with an additional 200 lines of code for simplification and pretty-printing".
