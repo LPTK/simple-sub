@@ -2,7 +2,7 @@ import Wart._
 
 enablePlugins(ScalaJSPlugin)
 
-ThisBuild / scalaVersion     := "2.13.8"
+ThisBuild / scalaVersion     := "2.13.10"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
 ThisBuild / organization     := "io.lptk"
 ThisBuild / organizationName := "LPTK"
@@ -16,7 +16,7 @@ lazy val root = project.in(file("."))
 
 lazy val simplesub = crossProject(JSPlatform, JVMPlatform).in(file("."))
   .settings(
-    name := "simple-algebraic-subtyping",
+    name := "simple-sub",
     scalacOptions ++= Seq(
       "-deprecation",
       "-feature",
@@ -30,7 +30,7 @@ lazy val simplesub = crossProject(JSPlatform, JVMPlatform).in(file("."))
       DefaultArguments, ImplicitParameter, StringPlusAny,
       JavaSerializable, Serializable, Product,
       LeakingSealed,
-      Option2Iterable, TraversableOps,
+      Option2Iterable,
     ),
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.13" % Test,
     libraryDependencies += "com.lihaoyi" %%% "fastparse" % "2.3.3",
