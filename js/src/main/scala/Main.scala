@@ -11,9 +11,9 @@ object Main {
     source.addEventListener("input", typecheck)
   }
   @JSExportTopLevel("typecheck")
-  def typecheck(e: UIEvent): Unit = {
+  def typecheck(e: dom.UIEvent): Unit = {
     e.target match {
-      case elt: HTMLTextAreaElement =>
+      case elt: dom.HTMLTextAreaElement =>
         update(elt.value)
     }
   }
@@ -55,9 +55,9 @@ object Main {
               var defs = pgrm.defs
               var curCtx = ctx
               var res = collection.mutable.ListBuffer.empty[Either[TypeError, PolymorphicType]]
-              while (defs.nonEmpty) {
-                val (isrec, nme, rhs) = defs.head
-                defs = defs.tail
+              while (defs.nonEmpty) defs match {
+              case (isrec, nme, rhs) :: rest =>
+                defs = rest
                 val ty_sch = try Right(typeLetRhs(isrec, nme, rhs)(curCtx, 0)) catch {
                   case err: TypeError =>
                     if (stopAtFirstError) defs = Nil
@@ -65,6 +65,7 @@ object Main {
                 }
                 res += ty_sch
                 curCtx += (nme -> ty_sch.getOrElse(freshVar(0)))
+              case Nil =>
               }
               res.toList
             }

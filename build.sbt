@@ -28,7 +28,7 @@ lazy val simplesub = crossProject(JSPlatform, JVMPlatform).in(file("."))
       Recursion, Throw, Nothing, Return, While,
       Var, MutableDataStructures, NonUnitStatements,
       DefaultArguments, ImplicitParameter, StringPlusAny,
-      JavaSerializable, Serializable, Product,
+      JavaSerializable, Serializable, Product, Any,
       LeakingSealed,
       Option2Iterable,
     ),
