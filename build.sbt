@@ -33,7 +33,7 @@ lazy val simplesub = crossProject(JSPlatform, JVMPlatform).in(file("."))
       Option2Iterable,
     ),
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.18" % Test,
-    libraryDependencies += "com.lihaoyi" %%% "fastparse" % "3.0.2",
+    libraryDependencies += "com.lihaoyi" %%% "fastparse" % "3.1.0",
     libraryDependencies += "com.lihaoyi" %%% "sourcecode" % "0.3.1",
   )
   .jsSettings(
