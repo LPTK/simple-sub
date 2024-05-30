@@ -2,7 +2,7 @@ import Wart._
 
 enablePlugins(ScalaJSPlugin)
 
-ThisBuild / scalaVersion     := "2.13.13"
+ThisBuild / scalaVersion     := "2.13.14"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
 ThisBuild / organization     := "io.lptk"
 ThisBuild / organizationName := "LPTK"
@@ -34,7 +34,7 @@ lazy val simplesub = crossProject(JSPlatform, JVMPlatform).in(file("."))
     ),
     libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.18" % Test,
     libraryDependencies += "com.lihaoyi" %%% "fastparse" % "3.1.0",
-    libraryDependencies += "com.lihaoyi" %%% "sourcecode" % "0.3.1",
+    libraryDependencies += "com.lihaoyi" %%% "sourcecode" % "0.4.2",
   )
   .jsSettings(
     scalaJSUseMainModuleInitializer := true,
