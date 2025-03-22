@@ -16,7 +16,7 @@ jobs:
     - uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '1.8'
+        java-version: '11.0.26+4'
         cache: 'sbt'
         cache-dependency-path: | # optional
           build.sbt
